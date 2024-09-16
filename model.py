@@ -45,7 +45,7 @@ class InputTooLargeError(HTTPException):
     def __init__(self, detail: str = "Input list is too large."):
         super().__init__(status_code=400, detail=detail)
 
-class RandomObjectPool(Generic[T]):
+class ObjectPoolManagement(Generic[T]):
     """
     Class that manages a pool of objects.
     """

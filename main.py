@@ -1,24 +1,24 @@
 from fastapi import FastAPI, HTTPException, Query, Body
 from pydantic import BaseModel
 import logging
-from model import RandomObjectPool, registered_types, InputTooLargeError
+from model import ObjectPoolManagement, registered_types, InputTooLargeError
 from typing import Dict
 import os
 
 app = FastAPI(
-    title="Random Object Selector API",
+    title="Object Pool Management API",
     description=(
-        "**The Random Object Selector API** provides endpoints for managing pools of objects of various types and retrieving a random object from a pool.\n\n"
+        "**The Object Pool Management API** provides functionalities for managing pools of objects by type. Users can create pools for different object types (e.g., shirts, books), add or remove objects from these pools, and retrieve a random object from a specific pool. Each pool is identified by the type name of objects it contains.\n"
+        "\nThe API checks the object type before adding to or removing from pools.\n\n"
         "**Key Features:**\n"
         "- **Create pools** for different object types (e.g., shirts, books).\n"
-        "- **Add objects** to the pools.\n"
-        "- **Remove objects** from the pools.\n"
+        "- **Add object** to the pool.\n"
+        "- **Remove object** from the pool.\n"
         "- **Retrieve a random object** from a specified pool.\n\n"
-        "Each pool is identified by the type name of objects it contains. The API ensures type-safety by checking object types before adding or removing them from pools.\n\n"
         "**Example Usage:**\n"
         "To retrieve a random shirt from the 'Shirt' pool:\n\n"
         "```bash\n"
-        "curl -X GET \"http://localhost:8000/random/?type_name=Shirt\"\n"
+        "curl -X GET \"http://localhost:8000/get-random/?type_name=Shirt\"\n"
         "```\n"
         "**Response:**\n"
         "```json\n"
@@ -35,7 +35,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Dictionary to store pools for different types
-pools: Dict[str, RandomObjectPool] = {}
+pools: Dict[str, ObjectPoolManagement] = {}
 
 # Retrieve max_size from environment variable or use default. Default max size of list in Python is 536870912.
 max_size = int(os.getenv("MAX_POOL_SIZE", 536870912))
@@ -48,15 +48,23 @@ class Book(BaseModel):
     title: str
     author: str
 
-@app.post("/create_object_pool/",
+@app.post("/create-pool/",
           summary="Create an Object Pool",
           description=(
-              "**This endpoint initializes a pool for a specified object type, allowing future addition of objects of that type.**\n\n"
+              "**This endpoint initializes a pool for a specified object type.**\n\n"
               "**Parameters:**\n"
-              "- **type_name** (str): The name of the object type for which the pool is to be created. This must match a registered object type.\n\n"
+              "- **type_name** (str): The name of the object type for which the pool is to be created. The name must match a registered object type.\n\n"
               "**Responses:**\n"
               "- **200:** Pool created successfully.\n"
-              "- **400:** Pool already exists or the object type is not registered."
+              "- **400:** Pool already exists or the object type is not registered.\n"
+               "\n**Example Usage:**\n"
+                "```bash\n"
+                "curl -X GET \"http://localhost:8000/create-pool/?type_name=Shirt\"\n"
+                "```\n"
+                "**Response:**\n"
+                "```json\n"
+                "{ Pool created successfully } \n"
+                "```\n\n"
           ),
           tags=["Object Pool Management"],
           responses={
@@ -93,18 +101,29 @@ async def create_object_pool(type_name: str = Query(..., description="The object
     if type_name not in registered_types:
         raise HTTPException(status_code=400, detail="Type not registered")
     pool_type = registered_types[type_name]
-    pools[type_name] = RandomObjectPool(expected_type=pool_type, max_size=max_size)
+    pools[type_name] = ObjectPoolManagement(expected_type=pool_type, max_size=max_size)
     return {"message": f"Pool created for type {type_name}"}
 
-@app.get("/random/", 
+@app.get("/get-random/", 
     summary="Retrieve a Random Object from Pool",
     description=(
         "**This endpoint retrieves a random object from a pool of the specified type.**\n\n"
         "**Parameters:**\n"
-        "- **type_name** (str): The name of the object type from which a random object will be retrieved.\n\n"
+        "- **type_name** (str): The name of the object type pool from which a random object will be retrieved.\n\n"
         "**Responses:**\n"
         "- **200:** Successfully retrieved a random object.\n"
-        "- **404:** Pool not found or pool is empty."
+        "- **404:** Pool not found or pool is empty.\n"
+        "\n **Example Usage:**\n"
+        "```bash\n"
+        "curl -X GET \"http://localhost:8000/get-random/?type_name=Shirt\"\n"
+        "```\n"
+        "**Response:**\n"
+        "```json\n"
+        "{\n"
+        "    \"size\": \"M\",\n"
+        "    \"color\": \"blue\"\n"
+        "}\n"
+        "```\n\n"
     ),
     tags=["Object Management"],
     responses={
@@ -150,17 +169,25 @@ async def get_random_object_from_pool(
     except IndexError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
-@app.post("/add_object_to_pool/",
+@app.post("/add-object/",
           summary="Add an Object to Pool",
           description=(
-              "**This endpoint allows for users to add an object to a pool of that specified type. The pool should exist.**\n\n"
+              "**This endpoint allows for users to add an object to a pool of that specified type. The pool must exist.**\n\n"
               "**Parameters:**\n"
               "- **type_name** (str): The object type name of the pool.\n"
               "- **item** (BaseModel): The object to be added to the pool, specified by the pool type.\n\n"
               "**Responses:**\n"
               "- **200:** Object added successfully.\n"
               "- **400:** Object type mismatch or pool size exceeded.\n"
-              "- **404:** Pool not found."
+              "- **404:** Pool not found.\n"
+              "\n **Example Usage:**\n"
+                "```bash\n"
+                "curl -X GET \"http://localhost:8000/add-object/?type_name=Shirt\"\n"
+                "```\n"
+                "**Response:**\n"
+                "```json\n"
+                "{ Object added successfully } \n"
+                "```\n\n"
           ),
           tags=["Object Management"],
           responses={
@@ -194,10 +221,6 @@ async def add_object_to_pool(type_name: str = Query(..., description="The object
         ...,
         description="The object to be added to the pool, specified by the pool type.",
         example={
-            'Shirt': {
-                "size": "M",
-                "color": "blue"
-            },
             'Book': {
                 "title": "1984",
                 "author": "George Orwell"
@@ -206,7 +229,7 @@ async def add_object_to_pool(type_name: str = Query(..., description="The object
     )
 ):
     """
-    This endpoint allows for users to add an object to a pool of that specified type. The pool should exist.
+    This endpoint allows for users to add an object to a pool of that specified type. The pool type exist.
 
     Args:
         type_name (str): The object type name of the pool to add the object to.
@@ -229,7 +252,7 @@ async def add_object_to_pool(type_name: str = Query(..., description="The object
     except InputTooLargeError as e:
         raise e
 
-@app.delete("/remove_object_from_pool/",
+@app.delete("/remove-object/",
             summary="Remove an Object from Pool",
             description=(
                 "**This endpoint allows users to remove an object from the specified object pool.**\n\n"
@@ -239,7 +262,15 @@ async def add_object_to_pool(type_name: str = Query(..., description="The object
                 "**Responses:**\n"
                 "- **200:** Object removed successfully.\n"
                 "- **404:** Pool not found.\n"
-                "- **400:** Object type mismatch."
+                "- **400:** Object type mismatch.\n"
+                "\n **Example Usage:**\n"
+                "```bash\n"
+                "curl -X GET \"http://localhost:8000/remove-object/?type_name=Shirt\"\n"
+                "```\n"
+                "**Response:**\n"
+                "```json\n"
+                "{ Object removed successfully } \n"
+                "```\n\n"
             ),
             tags=["Object Management"],
             responses={
@@ -271,7 +302,7 @@ async def add_object_to_pool(type_name: str = Query(..., description="The object
 async def remove_object_from_pool(type_name: str = Query(..., description="The object type name of the pool."),
     item: BaseModel = Body(
         ...,
-        description="The object to be removed from the pool, specified by the pool type.",
+        description="The object to be removed from the pool, specified by the pool type. The pool must exist.",
         example={
             'Shirt': {
                 "size": "M",
@@ -285,7 +316,7 @@ async def remove_object_from_pool(type_name: str = Query(..., description="The o
     )
 ):
     """
-    This endpoint allows users to remove an object from the specified object pool.
+    This endpoint allows users to remove an object from the specified object pool. The pool must exist.
 
     Args:
         type_name (str): The object type name of the pool to remove the object from.
