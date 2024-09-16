@@ -9,6 +9,7 @@ app = FastAPI(
     title="Random Object Selector API",
     description="An API for managing pools of objects and selecting one at random."
 )
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,8 @@ max_size = int(os.getenv("MAX_POOL_SIZE", 536870912))
             This endpoint allows for users to create an object pool for a specified object type. 
             The specified type should match one of the registered object types.
             """, 
-            responses={
+          tags=["Object Pool Management"],
+          responses={
             200: {
                 "description": "Pool created successfully",
                 "content": {
@@ -45,8 +47,7 @@ max_size = int(os.getenv("MAX_POOL_SIZE", 536870912))
                     }
                 }
             }
-        }
-            )
+        })
 async def create_object_pool(type_name: str = Query(..., description="The object type name for which the pool is to be initialized.")):
     """
     This endpoint allows for users to initialize an object pool for a specified type. 
@@ -68,32 +69,33 @@ async def create_object_pool(type_name: str = Query(..., description="The object
 
 @app.post("/add_object_to_pool/", 
           summary="Add an Object to Pool", 
-    description="This endpoint allows for users to add an object to a pool of that specified type. The pool should exist.",
-    responses={
-        200: {
-            "description": "Object added successfully",
-            "content": {
-                "application/json": {
-                    "example": {"message": "Object added successfully"}
+          description="This endpoint allows for users to add an object to a pool of that specified type. The pool should exist.",
+          tags=["Object Management"],
+          responses={
+            200: {
+                "description": "Object added successfully",
+                "content": {
+                    "application/json": {
+                        "example": {"message": "Object added successfully"}
+                    }
+                }
+            },
+            400: {
+                "description": "Object type mismatch or pool size exceeded",
+                "content": {
+                    "application/json": {
+                        "example": {"detail": "Object type does not match pool type"}
+                    }
+                }
+            },
+            404: {
+                "description": "Pool not found",
+                "content": {
+                    "application/json": {
+                        "example": {"detail": "Pool not found"}
+                    }
                 }
             }
-        },
-        400: {
-            "description": "Object type mismatch or pool size exceeded",
-            "content": {
-                "application/json": {
-                    "example": {"detail": "Object type does not match pool type"}
-                }
-            }
-        },
-        404: {
-            "description": "Pool not found",
-            "content": {
-                "application/json": {
-                    "example": {"detail": "Pool not found"}
-                }
-            }
-        }
     })
 async def add_object_to_pool(type_name: str = Query(..., description="The object type name of the pool."),
     item: BaseModel = Body(
@@ -131,32 +133,33 @@ async def add_object_to_pool(type_name: str = Query(..., description="The object
 
 @app.delete("/remove/",
             summary="Remove an Object from Pool",
-    description="This endpoint allows users to remove an object from the specified object pool.",
-    responses={
-        200: {
-            "description": "Object removed successfully",
-            "content": {
-                "application/json": {
-                    "example": {"message": "Object removed successfully"}
+            description="This endpoint allows users to remove an object from the specified object pool.",
+            tags=["Object Management"],
+            responses={
+                200: {
+                    "description": "Object removed successfully",
+                    "content": {
+                        "application/json": {
+                            "example": {"message": "Object removed successfully"}
+                        }
+                    }
+                },
+                400: {
+                    "description": "Object type mismatch",
+                    "content": {
+                        "application/json": {
+                            "example": {"detail": "Object type does not match pool type"}
+                        }
+                    }
+                },
+                404: {
+                    "description": "Pool or Object not found",
+                    "content": {
+                        "application/json": {
+                            "example": {"detail": "Pool not found or object not found in pool"}
+                        }
+                    }
                 }
-            }
-        },
-        400: {
-            "description": "Object type mismatch",
-            "content": {
-                "application/json": {
-                    "example": {"detail": "Object type does not match pool type"}
-                }
-            }
-        },
-        404: {
-            "description": "Pool or Object not found",
-            "content": {
-                "application/json": {
-                    "example": {"detail": "Pool not found or object not found in pool"}
-                }
-            }
-        }
     })
 async def remove_object_from_pool(type_name: str = Query(..., description="The object type name of the pool."),
     item: BaseModel = Body(
@@ -191,6 +194,7 @@ async def remove_object_from_pool(type_name: str = Query(..., description="The o
 @app.get("/random/", 
     summary="Get a Random Object from Pool",
     description="This endpoint allows users to retrieve a random object from the specified object pool.",
+    tags=["Object Retrieval"],
     responses={
         200: {
             "description": "Random object retrieved successfully",
